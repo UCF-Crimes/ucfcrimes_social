@@ -1,24 +1,24 @@
 """Format a database report and publish it to the enabled social platforms."""
 
-from configparser import ConfigParser, SectionProxy
+from configparser import ConfigParser
 from datetime import datetime
 from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from image import generate_image
-from meta_toolkit import post_to_meta_both
-from send_telegram import send_telegram
+from platforms import meta, telegram, x
 from string_adjustments import get_emojis, titlize
-from xed import XED
 
 
 def format_datetime(value: datetime | str) -> str:
+    """Format a report timestamp for the post caption."""
     parsed = value if isinstance(value, datetime) else datetime.fromisoformat(value)
     return parsed.strftime("%m/%d/%y %I:%M %p")
 
 
 def format_report(crime) -> str:
+    """Build the caption shared by the platform integrations."""
     return "\n".join((
         crime["title"] + get_emojis(crime["title"]),
         f"Occurred at {titlize(crime['campus'])}, {crime['place']}",
@@ -29,23 +29,18 @@ def format_report(crime) -> str:
     ))
 
 
-def post_to_x(settings: SectionProxy, image: Path, message: str, *, place: str) -> None:
-    client = XED(
-        settings["CONSUMER_KEY"],
-        settings["CONSUMER_SECRET"],
-        settings["ACCESS_TOKEN"],
-        settings["ACCESS_TOKEN_SECRET"],
-    )
-    client.post(message=message, media_list=[(str(image), f"Map image over {place}")])
-
-
 def notify_crime(crime, config: ConfigParser) -> bool:
+    """Return whether every enabled platform published the report."""
     publishers = (
-        ("META", post_to_meta_both),
-        ("TELEGRAM", send_telegram),
-        ("TWITTER", partial(post_to_x, place=crime["place"])),
+        ("META", meta.publish),
+        ("TELEGRAM", telegram.publish),
+        ("TWITTER", partial(x.publish, place=crime["place"])),
     )
-    enabled = [(section, publish) for section, publish in publishers if config.getboolean(section, "ENABLE", fallback=False)]
+    enabled = [
+        (section, publish)
+        for section, publish in publishers
+        if config.getboolean(section, "ENABLE", fallback=False)
+    ]
     if not enabled:
         return True
 

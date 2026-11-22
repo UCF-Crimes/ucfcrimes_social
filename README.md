@@ -23,6 +23,8 @@ Fill in the PostgreSQL settings for the shared `crimes` table and enable the des
 python src --config config.ini
 ```
 
+The integrations for Meta, Telegram, and X live in `src/platforms/`.
+
 Each invocation processes the previous day's reports. Schedule it to run once a day after the loader. Running it again for the same day can repost those reports.
 
 ## Notes
