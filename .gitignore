@@ -4,9 +4,9 @@ cases.json
 casez.png
 out.png
 AllDailyCrimeLog.pdf
-/__pycache__
+__pycache__/
 config.ini
 test_meta.py
 test_cases.json
 test_message.py
-config.ini
+/gpt_expansions.json

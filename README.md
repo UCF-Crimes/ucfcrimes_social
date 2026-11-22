@@ -6,6 +6,17 @@ The UCF Crimes Discord has ability to query over dates and locations. More optio
 
 View our work here: [UCF NSM Article](https://www.nicholsonstudentmedia.com/news/ucf-students-create-crime-tracking-social-media/article_af24e17a-79d4-11ee-8c27-e3a2cc49333f.html)
 
+## Run the social publisher
+
+Use Python 3.11 and Pipenv. Place your publisher configuration in `config.ini` and run the publisher from the repository root.
+
+```sh
+pipenv sync
+pipenv run python src
+```
+
+The code and bundled lookup data are in the flat `src/` directory. New title expansions are cached in `gpt_expansions.json` in the working directory.
+
 ## Notes
 
 - UCF Crimes is not affiliated with UCFPD

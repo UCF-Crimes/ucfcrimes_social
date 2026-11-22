@@ -8,17 +8,26 @@ UCF Crimes
 '''
 
 from configparser import ConfigParser
+from pathlib import Path
 import openai
 import json
 
 main_config = ConfigParser()
 main_config.read('config.ini')
 
+DEFAULT_EXPANSIONS = Path(__file__).with_name("gpt_expansions.json")
+EXPANSIONS_CACHE = Path("gpt_expansions.json")
+
+
+def read_expansions():
+    path = EXPANSIONS_CACHE if EXPANSIONS_CACHE.is_file() else DEFAULT_EXPANSIONS
+    with path.open(encoding="utf-8") as file:
+        return json.load(file)
+
 # Prompt engineering for the model
 # It seems to work pretty well even without the examples so that will be an option for us
 def generate_prompt(title: str, provide_examples=True):
-    with open('gpt_expansions.json', 'r') as f:
-        prev_examples = json.load(f)
+    prev_examples = read_expansions()
 
     # Start with instruction
     prompt = "Here is some text from a case notification system that has some abbreviations. Can you expand the text while still keeping it uppercase? If it is just one word, you can keep it that word. Don't worry too much about prepositions such as 'of' and 'as', but do include them when necessary. You will have to be clever; there may be spelling errors and other abnormalities in the text."
@@ -59,8 +68,7 @@ def gpt_title_expand(formatted_title, provide_examples=True):
     answer = response['choices'][0]['message']['content'].strip('.')    # Remove period if generated
 
     # Get the responses list
-    with open('gpt_expansions.json', 'r') as f:
-        responses_list = json.load(f)
+    responses_list = read_expansions()
 
     # Check if a pre-expanded title is already in the list
     for resp in responses_list:
@@ -76,7 +84,7 @@ def gpt_title_expand(formatted_title, provide_examples=True):
     })
 
     # Save the responses list
-    with open('gpt_expansions.json', 'w') as f:
+    with EXPANSIONS_CACHE.open("w", encoding="utf-8") as f:
         json.dump(responses_list, f, indent=4)
 
     # Return the GPT answer

@@ -7,10 +7,12 @@ UCF Crimes
 '''
 
 import re
+from pathlib import Path
 import editdistance
 import json
 from selenium_scrape import selenium_scrape
 
+DATA_DIR = Path(__file__).resolve().parent
 TYPO_TOLERANCE = 1
 
 
@@ -25,7 +27,7 @@ def case_title_format(case_title: str) -> str:
 # Because emojis are fun
 # Reads from emojis.json (supports regex!)
 def get_emojis(formatted_case_title: str) -> str:
-    with open('emojis.json', 'r', encoding="utf-8") as f:
+    with (DATA_DIR / "emojis.json").open(encoding="utf-8") as f:
         emojis: dict = json.load(f)
 
     emoji_suffix = ''
@@ -38,7 +40,7 @@ def get_emojis(formatted_case_title: str) -> str:
 
 # Returns title function applied to string with exceptions found in title_exceptions.json
 def gen_title(str_upper: str) -> str:
-    with open('title_exceptions.json') as f:
+    with (DATA_DIR / "title_exceptions.json").open(encoding="utf-8") as f:
         exceptions: dict = json.load(f)
 
     title = ''
@@ -56,7 +58,7 @@ def gen_title(str_upper: str) -> str:
 # DO NOT USE, THIS IS A HELPER FUNCTION FOR REPLACE_ADDRESS()
 def expand_address(address: str) -> str:
     address = ' ' + address + ' '
-    address = re.sub('\.', '', address)   # Remove periods
+    address = re.sub(r'\.', '', address)   # Remove periods
 
     subs = {
         ' W ': ' WEST ',
@@ -64,7 +66,7 @@ def expand_address(address: str) -> str:
         ' N ': ' NORTH ',
         ' S ': ' SOUTH ',
         'BLD' : 'BLVD',
-        ' ?(?: and |\/) ?': ' & '     # Change intersection of streets to &
+        r' ?(?: and |/) ?': ' & '     # Change intersection of streets to &
     }
     for key, value in subs.items():
         address = re.sub(key, value, address, flags=re.IGNORECASE)
@@ -81,7 +83,7 @@ def replace_address(addr: str, try_selenium=False) -> str:
     txt_tokens = expanded_addr.split()
 
     # Start by looking through the address
-    with open('locations.json') as f:
+    with (DATA_DIR / "locations.json").open(encoding="utf-8") as f:
         locs: dict[str] = json.load(f)
 
     # Do this with every key
@@ -90,7 +92,7 @@ def replace_address(addr: str, try_selenium=False) -> str:
         is_match = True
 
         # If numerical start, make sure it matches exactly
-        if re.match('\d', txt_tokens[0]) and re.match('\d', key_tokens[0]) and txt_tokens[0] != key_tokens[0]:
+        if re.match(r'\d', txt_tokens[0]) and re.match(r'\d', key_tokens[0]) and txt_tokens[0] != key_tokens[0]:
             is_match = False
             continue
 
