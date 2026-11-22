@@ -8,14 +8,22 @@ View our work here: [UCF NSM Article](https://www.nicholsonstudentmedia.com/news
 
 ## Run the social publisher
 
-Use Python 3.11 and Pipenv. Place your publisher configuration in `config.ini` and run the publisher from the repository root.
+Use Python 3.11 or newer. For Cairo map rendering, install Cairo and `pkg-config` through your system package manager if your platform builds Pycairo from source.
 
 ```sh
-pipenv sync
-pipenv run python src
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+cp config.example.ini config.ini
 ```
 
-The code and bundled lookup data are in the flat `src/` directory. New title expansions are cached in `gpt_expansions.json` in the working directory.
+Fill in the PostgreSQL settings for the shared `crimes` table and enable the desired publisher sections in `config.ini`. The publisher uses the `title`, `place`, and coordinates written by the current loader. Existing monorepo publisher credentials can be used with the same section and key names. Set the CARTO key in `[CARTO]` or through `CARTO_API_KEY`. Meta uses the version configured on the app unless you set `graph_api_version`.
+
+```sh
+python src --config config.ini
+```
+
+Each invocation processes the previous day's reports. Schedule it to run once a day after the loader. Running it again for the same day can repost those reports.
 
 ## Notes
 

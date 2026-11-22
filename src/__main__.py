@@ -1,92 +1,55 @@
-'''
-UCFCrimes_Social bot
+"""Publish the previous day's UCF crime reports."""
 
-04.05.2023
-'''
-import requests
-from math import floor
-import json
-from notify_case import notify_case
-latest_case_id = None
-import psycopg2, psycopg2.extras
-import os, platform
-if platform.system() == "Linux":
-    if os.path.exists("/tmp/crime_social"):
-        import shutil
-        shutil.rmtree("/tmp/crime_social")
-    os.makedirs("/tmp/crime_social")
-    os.makedirs("/tmp/crime_social/chrome")
+import argparse
 from configparser import ConfigParser
-main_config = ConfigParser()
-main_config.read('config.ini')
-import time, calendar, datetime
-table = main_config.get('postgresql', 'table')
-def setup_db(main_config):
-    # Connect to the PostgreSQL database
-    conn = psycopg2.connect(
-        host = main_config.get('postgresql', 'host'),
-        database = main_config.get('postgresql', 'database'),
-        user = main_config.get('postgresql', 'user'),
-        password = main_config.get('postgresql', 'password')
+from contextlib import closing
+from datetime import date, timedelta
+from pathlib import Path
 
-    )
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    return conn, cur
-while True:
-    conn, cur = setup_db(main_config)
-    #First Run
-    if not latest_case_id:
-        sql = f"""
-        SELECT id, case_id
-        FROM {table}
-        ORDER BY id DESC
-        LIMIT 1
-        """
-        # Execute the SQL statement with fetchone() method
-        cur.execute(sql)
-        if cur.rowcount > 0:
-            latest_case_id = cur.fetchone()['id']
-        else:
-            latest_case_id = None
-        print(f"Started newest case is  {latest_case_id}")
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
-    else: 
-        sql = f"""
-        SELECT *
-        FROM {table} WHERE id > %s
-        ORDER BY id ASC
-        """
-        cur.execute(sql, (latest_case_id,))
-        if cur.rowcount > 0:
-            cases = cur.fetchall()
+from notify_case import notify_crime
 
-            reached_old = False
-            new_count = 0
-            for case in cases:
-                #print(case)
-                new_count += 1
-                print(f"New case {case['case_id'], case['id']}")
-                notify_case(case)
-            latest_case_id = cases[-1]['id']
-            print(f"New cases detected  {new_count}")
-        else:
-            print("No new cases")
-    cur.close()
-    conn.close()
-    conn = None
-    cur = None
-    # get current date and time
-    now = datetime.datetime.now()
-    # get the number of days in the current month
-    last_day = calendar.monthrange(now.year, now.month)[1]
-    # calculate time until next day at 12:05 am
-    if now.day == last_day:
-        target_time = datetime.datetime(now.year, now.month+1, 1, 0, 5)
-    else:
-        target_time = datetime.datetime(now.year, now.month, now.day+1, 0, 5)
-    time_delta = target_time - now
-    print(f"Sleeping until {target_time} ({time_delta})")
-    seconds_until_target = time_delta.total_seconds()
-    time.sleep(seconds_until_target)
-    print("Running new check")
 
+def read_reports(config: ConfigParser, report_date: date):
+    db = config["POSTGRESQL"] if config.has_section("POSTGRESQL") else config["postgresql"]
+    with closing(psycopg2.connect(
+        host=db["host"],
+        port=db.getint("port", fallback=None),
+        dbname=db["database"],
+        user=db["user"],
+        password=db["password"],
+    )) as connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        cursor.execute(
+            "SELECT * FROM crimes WHERE report_dt::date = %s ORDER BY report_dt, case_id",
+            (report_date,),
+        )
+        return cursor.fetchall()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=Path("config.ini"), help="Path to the INI configuration")
+    options = parser.parse_args(argv)
+    config = ConfigParser(interpolation=None)
+    with options.config.open(encoding="utf-8") as config_file:
+        config.read_file(config_file)
+
+    yesterday = date.today() - timedelta(days=1)
+    reports = read_reports(config, yesterday)
+    print(f"Found {len(reports)} reports for {yesterday}.")
+
+    failed = False
+    for report in reports:
+        try:
+            if not notify_crime(report, config):
+                failed = True
+        except Exception as error:
+            print(f"Could not prepare case {report['case_id']}: {type(error).__name__}")
+            failed = True
+    return int(failed)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,6 @@
+Pillow>=10,<14
+psycopg2-binary>=2.9,<3
+py-staticmaps[cairo]>=0.5,<1
+python-telegram-bot>=22,<23
+requests>=2.31,<3
+tweepy>=4,<5
